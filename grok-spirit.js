@@ -360,14 +360,29 @@
         return url.includes('/imagine/post/')
     }
     async function start(url) {
-        if (state.active) return;
-        state.active = true;
-        console.log('[GrokSpirit] start on', url);
+        if (!state.active) {
+            state.active = true;
+            console.log('[GrokSpirit] start on', url);
 
-        state.currentUrl = url;
-        initResultPanel();
-        await mountResultPanel();
-        await setData();
+            state.currentUrl = url;
+            initResultPanel();
+            await mountResultPanel();
+            await setData();
+        } else if (state.currentUrl !== url) {
+            console.log('[GrokSpirit] changed url', url);
+            state.currentUrl = url;
+            await setData();
+        }
+
+        //修复数据魔法
+        // chrome.storage.local.get(null, async (items) => {
+        //     for (let key in items) {
+        //         if (key.startsWith(`grok_video_`)) {
+        //             let data = items[key];
+        //         }
+        //     }
+        //     console.log('done');
+        // });
 
         return () => stop();
     }
@@ -389,7 +404,9 @@
 
     // Find UI
     function findOperationContainer() {
-        return document.querySelector('.flex.justify-between.gap-5');
+        // Select the container that wraps all operation controls
+        // This is the first child of max-w-[750px] mx-auto
+        return document.querySelector('.flex.gap-3.items-end.flex-nowrap');
     }
     function findPromptLayer() {
         return findOperationContainer()?.querySelector('.flex.justify-end.relative.w-full')
@@ -403,7 +420,23 @@
 
     // Data
     async function setData() {
-        const urlKey = `grok_video_${window.GrokSpiritUtils.getNormalizedUrl(state.currentUrl)}`;
+        let urlKey;
+        try {
+            // 尝试通过页面元素获取UUID: img[col-start-1 row-start-1 w-full h-full object-cover invisible pointer-events-none]
+            const img = document.querySelector('img.col-start-1.row-start-1.w-full.h-full.object-cover');
+            const src = img ? img.getAttribute('src') : null;
+            if (src) {
+                const uuid = window.GrokSpiritUtils.extractLastUUId(src);
+                if (uuid) {
+                    urlKey = `grok_video_${uuid}`;
+                }
+            }
+        } catch (e) { console.error(e); }
+
+        if (!urlKey) {
+            throw new Error('Failed to extract UUID from URL');
+        }
+
         //如果要切换key
         if (state.currentDataKey && state.currentDataKey !== urlKey) {
             if (state.currentData?.cachedVideoData?.videoUrl) await window.GrokSpiritUtils.writeStorage(state.currentDataKey, state.currentData);
@@ -451,27 +484,27 @@
             }
         }
         //设置文件夹
-        {
-            let folderName = window.FavoritesManager?.queryByUrlId?.(state.currentData.id)?.folderName;
-            if (folderName) {
-                if (!state.currentData.folderName) state.currentData.folderName = `${folderName}/${state.currentData.id}`;
-                else if (!state.currentData.folderName.startsWith(folderName)) {
-                    let arr = state.currentData.folderName.split('/');
-                    if (arr.length <= 1) {
-                        arr.unshift(folderName);
-                    } else if (arr.length === 2) {
-                        if (arr[arr.length - 1] === '000') {
-                            arr.unshift(folderName);
-                        } else {
-                            arr[0] = folderName;
-                        }
-                    } else if (arr.length >= 3) {
-                        arr[0] = folderName;
-                    }
-                    state.currentData.folderName = arr.join('/');
-                }
-            }
-        }
+        // {
+        //     let folderName = window.FavoritesManager?.queryByUrlId?.(state.currentData.id)?.folderName;
+        //     if (folderName) {
+        //         if (!state.currentData.folderName) state.currentData.folderName = `${folderName}/${state.currentData.id}`;
+        //         else if (!state.currentData.folderName.startsWith(folderName)) {
+        //             let arr = state.currentData.folderName.split('/');
+        //             if (arr.length <= 1) {
+        //                 arr.unshift(folderName);
+        //             } else if (arr.length === 2) {
+        //                 if (arr[arr.length - 1] === '000') {
+        //                     arr.unshift(folderName);
+        //                 } else {
+        //                     arr[0] = folderName;
+        //                 }
+        //             } else if (arr.length >= 3) {
+        //                 arr[0] = folderName;
+        //             }
+        //             state.currentData.folderName = arr.join('/');
+        //         }
+        //     }
+        // }
         //
         updateResultPanel();
     }
@@ -507,7 +540,7 @@
                 display: block;
                 width: 100%;
                 margin-top: 4px;
-                margin-bottom: 20px;
+                margin-bottom: 40px;
                 background: #f8f9fa;
                 border: 1px solid #e9ecef;
                 border-radius: 12px;
@@ -708,6 +741,23 @@
     async function mountResultPanel() {
         let container = await window.GrokSpiritUtils.waitForSelector(() => findOperationContainer());
         container.parentNode.insertBefore(state.resultPanel, container.nextSibling);
+
+        // Remove overflow-hidden from parent containers to ensure panel is fully visible
+        // Find the element with classes: flex w-full h-full overflow-hidden @container/mainview relative
+        let currentNode = container;
+        for (let i = 0; i < 15 && currentNode; i++) {
+            currentNode = currentNode.parentNode;
+            if (currentNode && currentNode.classList) {
+                const classList = currentNode.classList;
+                // Check if this element has overflow-hidden
+                if (classList.contains('overflow-hidden')) {
+                    // Remove overflow-hidden to allow content to be visible
+                    currentNode.classList.remove('overflow-hidden');
+                    console.log('[GrokSpirit] Removed overflow-hidden from parent container');
+                    // Continue searching in case there are multiple levels
+                }
+            }
+        }
     }
     function updateResultPanel() {
         updateGenImagesStatus();

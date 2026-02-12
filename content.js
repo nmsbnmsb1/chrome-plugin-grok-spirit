@@ -102,6 +102,7 @@ let currentUrl = window.location.href;
 
 // Initialize on page load
 
+let currentModuleId = null;
 let cleanup = null;
 
 function initializeWhenReady() {
@@ -119,8 +120,10 @@ function initializePlugin() {
   console.log('[GrokSpirit] Initializing Grok Spirit on:', currentUrl);
 
   handlePagePlugin();
+
   //监听url变换
   const observer = new MutationObserver(() => {
+    console.log(window.location.href)
     if (window.location.href === currentUrl) return;
     //let lastUrl = currentUrl;
     currentUrl = window.location.href;
@@ -148,13 +151,22 @@ function initializePlugin() {
 }
 
 async function handlePagePlugin() {
-  if (cleanup) await cleanup();
-  cleanup = null;
-
+  let targetModuleId = null;
+  let starter = null;
   if (window.GrokSpirit.canRun(currentUrl)) {
-    cleanup = await window.GrokSpirit.start(currentUrl);
-  } else if (window.FavoritesManager.canRun(currentUrl)) {
-    cleanup = await window.FavoritesManager.start(currentUrl);
+    targetModuleId = 'GrokSpirit';
+    starter = window.GrokSpirit.start;
+  }
+  // else if (window.FavoritesManager.canRun(currentUrl)) {
+  //   cleanup = await window.FavoritesManager.start(currentUrl);
+  // }
+
+  if (currentModuleId !== targetModuleId) {
+    currentModuleId = targetModuleId
+    if (cleanup) await cleanup();
+    if (starter) cleanup = await starter(currentUrl);
+  } else {
+    if (starter) cleanup = await starter(currentUrl);
   }
 }
 

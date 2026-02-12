@@ -333,10 +333,10 @@
     state.currentUrl = url;
     if (!state.favorites) state.favorites = await window.GrokSpiritUtils.readStorage(LIST_KEY, {});
 
+    //
     ensureToolbar();
     ensureCategoryPopup();
     ensureEditPopup();
-
     await watchListContainer();
 
     return () => stop()
@@ -370,7 +370,13 @@
 
   // #region 渲染函数
   async function watchListContainer(retry = 0) {
-    const container = await window.GrokSpiritUtils.waitForSelector(() => document.querySelector("div[role='list']"))
+    let container = await window.GrokSpiritUtils.waitForSelector(() => document.querySelector("div[role='list']"));
+    while (true) {
+      container = await window.GrokSpiritUtils.waitForSelector(() => document.querySelector("div[role='list']"));
+      if (collectCandidateNodes(container)?.length) break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
     state.listContainer = container;
     state.observer?.disconnect();
     state.observer = new MutationObserver(scheduleRender);
@@ -416,9 +422,6 @@
   }
   function ensureItem(node, meta) {
     let item = state.items.get(meta.id);
-    if (meta.id === 'f022370c-a13f-4ea7-875c-d1cc705897c5' && item) {
-      console.log(item === node)
-    }
     if (!item) {
       item = meta
       item.node = node;
