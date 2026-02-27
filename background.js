@@ -559,9 +559,9 @@ async function downloadVideoWithMeta(videoInfo, referer) {
       console.log('[GrokSpirit] HD video not found, attempting to trigger HD generation...');
       // Notify content script to show generating_hd status
       chrome.tabs.query({}, (tabs) => {
-        const target = tabs.find(tab => tab.url === referer);
+        const target = tabs.find(tab => tab.url === referer.url);
         if (target) {
-          chrome.tabs.sendMessage(target.id, { source: 'grok-spirit-generate-hd', referer }).catch(() => { });
+          chrome.tabs.sendMessage(target.id, { source: 'grok-spirit-generate-hd', referer: referer.key }).catch(() => { });
         }
       });
 
@@ -576,9 +576,9 @@ async function downloadVideoWithMeta(videoInfo, referer) {
 
       // Notify content script to restore completed status
       chrome.tabs.query({}, (tabs) => {
-        const target = tabs.find(tab => tab.url === referer);
+        const target = tabs.find(tab => tab.url === referer.url);
         if (target) {
-          chrome.tabs.sendMessage(target.id, { source: 'grok-spirit-generate-hd', referer, status: 'completed' }).catch(() => { });
+          chrome.tabs.sendMessage(target.id, { source: 'grok-spirit-generate-hd', referer: referer.key, status: 'completed' }).catch(() => { });
         }
       });
     }

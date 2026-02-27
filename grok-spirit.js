@@ -172,7 +172,6 @@
 
     // #region 初始化全局侦听和处理
     window.addEventListener('message', async (event) => {
-        console.log(event);
         if (event.source !== window || event.data?.source !== 'grok-spirit-fetch') return;
         //
         //根据refer来获取要保存到哪个数据
@@ -727,7 +726,7 @@
 
         const payload = {
             action: 'grok-spirit-download',
-            referer: state.currentDataKey,
+            referer: { key: state.currentDataKey, url: state.currentUrl },
             videoInfo: {
                 videoId: state.currentData.cachedVideoData.videoId,
                 videoUrl: state.currentData.cachedVideoData.videoUrl,
