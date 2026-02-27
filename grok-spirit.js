@@ -172,6 +172,7 @@
 
     // #region 初始化全局侦听和处理
     window.addEventListener('message', async (event) => {
+        console.log(event);
         if (event.source !== window || event.data?.source !== 'grok-spirit-fetch') return;
         //
         //根据refer来获取要保存到哪个数据
@@ -180,36 +181,21 @@
         if (!data) return;
 
         try {
-            if (msg.type === 'status' && msg.status === 'processing') {
-                console.log(`[GrokSpirit] processing start`);
-                data.hookSessionActive = true;
-                await handleVideoProcessing('processing', key, data, msg.referer);
-                return;
-            }
-
-            const payload = msg.data && msg.data.result && msg.data.result.response && msg.data.result.response.streamingVideoGenerationResponse;
-            if (!payload) return;
-
-            if (!data.hookSessionActive) {
-                data.hookSessionActive = true;
-                await handleVideoProcessing('processing', key, data, msg.referer);
-            }
-
-            if (typeof payload.videoPrompt === 'string' && payload.progress !== undefined && payload.progress < 5) {
-                data.hookOriginalPrompt = payload.videoPrompt;
-            }
-
-            if (payload.progress === 100) {
-                if (!payload.videoUrl) {
+            if (msg.type === 'status') {
+                if (msg.status === 'processing') {
+                    console.log(`[GrokSpirit] processing start`);
+                    data.hookSessionActive = true;
+                    await handleVideoProcessing('processing', key, data, msg.referer);
+                } else if (msg.status === 'completed') {
+                    console.log(`[GrokSpirit] processing completed with data`, msg.data);
                     data.hookSessionActive = false;
-                    data.hookOriginalPrompt = null;
+                    await handleVideoDetected(msg.data, key, data, msg.referer);
+                } else if (msg.status === 'failed') {
+                    console.log(`[GrokSpirit] processing failed`);
+                    data.hookSessionActive = false;
                     await handleVideoProcessing('failed', key, data, msg.referer);
-                } else {
-                    const enhanced = { ...payload, generated_prompt: payload.videoPrompt, originalPrompt: data.hookOriginalPrompt };
-                    data.hookSessionActive = false;
-                    data.hookOriginalPrompt = null;
-                    await handleVideoDetected(enhanced, key, data, msg.referer);
                 }
+                return;
             }
         } catch (e) {
             // ignore
@@ -230,16 +216,18 @@
     async function getKeyAndDataByReferer(referer) {
         let key;
         let data;
-        if (state.currentUrl === referer) {
+        console.log(state.currentUrl, referer);
+        if (state.currentDataKey === referer) {
             key = state.currentDataKey;
             data = state.currentData;
         } else {
-            key = `grok_video_${window.GrokSpiritUtils.getNormalizedUrl(referer)}`
+            key = referer
             data = await window.GrokSpiritUtils.readStorage(key);
+            console.log(key, data);
         }
         return { key, data };
     }
-    async function handleVideoProcessing(status, key, data, referer) {
+    async function handleVideoProcessing(status, key, data) {
         console.log(`[GrokSpirit] handleVideoProcessing called with status:`, status, 'key:', key);
 
         data.processingStatus = status;
@@ -247,7 +235,7 @@
         await saveData(key, data);
         if (data.id === state.currentData?.id) updateResultPanel();
     }
-    async function handleVideoDetected(videoInfo, key, data, referer) {
+    async function handleVideoDetected(videoInfo, key, data) {
         console.log(`[GrokSpirit] handleVideoDetected called with videoInfo:`, videoInfo, 'key:', key);
 
         // Extract original prompt from the response
@@ -368,10 +356,26 @@
             initResultPanel();
             await mountResultPanel();
             await setData();
+
         } else if (state.currentUrl !== url) {
-            console.log('[GrokSpirit] changed url', url);
-            state.currentUrl = url;
-            await setData();
+            // 如果上一次的页面和新的页面都在 /imagine/post/ 格式内，则判定为没有离开当前生成上下文，不复位。
+            if (state.currentUrl.includes('/imagine/post/') && url.includes('/imagine/post/')) {
+                console.log('[GrokSpirit] Ignoring internal URL change within the same post interface:', url);
+                state.currentUrl = url;
+            } else {
+                console.log('[GrokSpirit] changed url', url);
+                state.currentUrl = url;
+
+                // 切换页面时，需要清空过去的 key 强制抓取新页面的图片/UUID
+                if (state.currentDataKey) {
+                    if (state.currentData?.cachedVideoData?.videoUrl) {
+                        await window.GrokSpiritUtils.writeStorage(state.currentDataKey, state.currentData);
+                    }
+                    state.currentDataKey = state.currentData = null;
+                }
+
+                await setData();
+            }
         }
 
         //修复数据魔法
@@ -406,7 +410,7 @@
     function findOperationContainer() {
         // Select the container that wraps all operation controls
         // This is the first child of max-w-[750px] mx-auto
-        return document.querySelector('.flex.gap-3.items-end.flex-nowrap');
+        return document.querySelector('.query-bar');
     }
     function findPromptLayer() {
         return findOperationContainer()?.querySelector('.flex.justify-end.relative.w-full')
@@ -421,17 +425,27 @@
     // Data
     async function setData() {
         let urlKey;
-        try {
-            // 尝试通过页面元素获取UUID: img[col-start-1 row-start-1 w-full h-full object-cover invisible pointer-events-none]
-            const img = document.querySelector('img.col-start-1.row-start-1.w-full.h-full.object-cover');
-            const src = img ? img.getAttribute('src') : null;
-            if (src) {
-                const uuid = window.GrokSpiritUtils.extractLastUUId(src);
-                if (uuid) {
-                    urlKey = `grok_video_${uuid}`;
+
+        // 【思路转换】：如果当前状态里已经存有 urlKey，
+        // 我们不需要每次因为页面重渲染或微小变化重新去抓取图片 (图片在生成阶段不一定有)
+        // 只有当我们是首次进入或者切换到了全新的帖子页面时，再去寻找。
+        if (state.currentDataKey) {
+            urlKey = state.currentDataKey;
+        } else {
+            try {
+                // 尝试通过页面元素获取UUID: img[col-start-1 row-start-1 w-full h-full object-cover invisible pointer-events-none]
+                const img = document.querySelector('img.col-start-1.row-start-1.w-full.h-full.object-cover');
+                const src = img ? img.getAttribute('src') : null;
+                if (src) {
+                    const uuid = window.GrokSpiritUtils.extractLastUUId(src);
+                    if (uuid) {
+                        urlKey = `grok_video_${uuid}`;
+                    }
                 }
+            } catch (e) {
+                console.error('[GrokSpirit] Error waiting for image:', e);
             }
-        } catch (e) { console.error(e); }
+        }
 
         if (!urlKey) {
             throw new Error('Failed to extract UUID from URL');
@@ -536,9 +550,13 @@
 
         state.resultPanel = document.createElement('div');
         state.resultPanel.id = 'gs-result-panel';
+        //w-full max-w-4xl mx-auto
         state.resultPanel.style.cssText = `
                 display: block;
                 width: 100%;
+                max-width: 56rem;
+                margin-left: auto;
+                margin-right: auto;
                 margin-top: 4px;
                 margin-bottom: 40px;
                 background: #f8f9fa;
@@ -556,14 +574,14 @@
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
                     <!-- 左侧按钮组 -->
                     <div style="display:flex; gap:6px;">
-                        <button class="gs-btn gs-btn-clipboard" title="Copy from clipboard">📥 Clipboard</button>
-                        <button class="gs-btn gs-btn-gen-images" title="Enable image generation">🎨 Gen Images</button>
-                        <button class="gs-btn gs-btn-spicy" title="Enable spicy mode">🌶️ Spicy Mode</button>
+                        <!--<button type="button" class="gs-btn gs-btn-clipboard" title="Copy from clipboard">📥 Clipboard</button>-->
+                        <!--<button type="button" class="gs-btn gs-btn-gen-images" title="Enable image generation">🎨 Gen Images</button>-->
+                        <button type="button" class="gs-btn gs-btn-spicy" title="Enable spicy mode">🌶️ Spicy Mode</button>
                     </div>
                     <!-- 右侧状态 + 按钮 -->
                     <div style="display:flex; align-items:center; gap:6px;">
                         <span class="gs-status"></span>
-                        <button class="gs-btn gs-btn-download" title="Download">💾 Download</button>
+                        <button type="button" class="gs-btn gs-btn-download" title="Download">💾 Download</button>
                     </div>
                     </div>
                     <!-- 第二行输入组 -->
@@ -575,30 +593,33 @@
         `;
 
         // JSON editor buttons
-        const clipboardBtn = state.resultPanel.querySelector('.gs-btn-clipboard');
-        if (clipboardBtn) {
-            clipboardBtn.addEventListener('click', (event) => {
-                event.stopPropagation();
-                handleClipboardCopy();
-            });
-        }
+        // const clipboardBtn = state.resultPanel.querySelector('.gs-btn-clipboard');
+        // if (clipboardBtn) {
+        //     clipboardBtn.addEventListener('click', (event) => {
+        //         event.preventDefault();
+        //         event.stopPropagation();
+        //         handleClipboardCopy();
+        //     });
+        // }
 
-        const genImagesBtn = state.resultPanel.querySelector('.gs-btn-gen-images');
-        if (genImagesBtn) {
-            genImagesBtn.addEventListener('click', async (event) => {
-                event.stopPropagation();
-                //
-                state.currentData.genImages = !state.currentData.genImages;
-                updateGenImagesStatus();
-                await saveData();
-                //刷新页面
-                window.location.reload();
-            });
-        }
+        // const genImagesBtn = state.resultPanel.querySelector('.gs-btn-gen-images');
+        // if (genImagesBtn) {
+        //     genImagesBtn.addEventListener('click', async (event) => {
+        //         event.preventDefault();
+        //         event.stopPropagation();
+        //         //
+        //         state.currentData.genImages = !state.currentData.genImages;
+        //         updateGenImagesStatus();
+        //         await saveData();
+        //         //刷新页面
+        //         window.location.reload();
+        //     });
+        // }
 
         const spicyBtn = state.resultPanel.querySelector('.gs-btn-spicy');
         if (spicyBtn) {
             spicyBtn.addEventListener('click', async (event) => {
+                event.preventDefault();
                 event.stopPropagation();
                 //
                 state.currentData.spicy = !state.currentData.spicy;
@@ -610,6 +631,7 @@
         const downloadBtn = state.resultPanel.querySelector('.gs-btn-download');
         if (downloadBtn) {
             downloadBtn.addEventListener('click', (event) => {
+                event.preventDefault();
                 event.stopPropagation();
                 handleDownloadAll();
             });
@@ -634,61 +656,61 @@
             });
         }
     }
-    async function handleClipboardCopy() {
-        if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
-            console.warn('[GrokSpirit] Clipboard API is not available in this context.');
-            return null;
-        }
+    // async function handleClipboardCopy() {
+    //     if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
+    //         console.warn('[GrokSpirit] Clipboard API is not available in this context.');
+    //         return null;
+    //     }
 
-        try {
-            const clipboardText = await navigator.clipboard.readText();
-            const trimmedText = clipboardText.trim();
-            if (!trimmedText) {
-                console.warn('[GrokSpirit] Clipboard is empty or contains only whitespace.');
-                return null;
-            }
+    //     try {
+    //         const clipboardText = await navigator.clipboard.readText();
+    //         const trimmedText = clipboardText.trim();
+    //         if (!trimmedText) {
+    //             console.warn('[GrokSpirit] Clipboard is empty or contains only whitespace.');
+    //             return null;
+    //         }
 
-            //重置
-            state.currentData.cachedVideoData.videoPrompt = '';
-            delete state.currentData.locales;
+    //         //重置
+    //         state.currentData.cachedVideoData.videoPrompt = '';
+    //         delete state.currentData.locales;
 
-            //处理粘贴的数据
-            let clipboardData;
-            try {
-                clipboardData = JSON.parse(trimmedText);
-            } catch (e) {
-                console.warn('[GrokSpirit] Clipboard is not a valid JSON:', e);
-            }
+    //         //处理粘贴的数据
+    //         let clipboardData;
+    //         try {
+    //             clipboardData = JSON.parse(trimmedText);
+    //         } catch (e) {
+    //             console.warn('[GrokSpirit] Clipboard is not a valid JSON:', e);
+    //         }
 
-            //粘贴的是文本
-            if (!clipboardData) {
-                clipboardData = state.currentData.cachedVideoData.videoPrompt = trimmedText;
-                console.log(`[GrokSpirit] Paste plain Text:`, trimmedText);
-            } else if (clipboardData.en) {
-                //如果是多语言
-                state.currentData.cachedVideoData.videoPrompt = JSON.stringify(clipboardData.en);
-                delete clipboardData.en;
-                state.currentData.locales = clipboardData
-                console.log(`[GrokSpirit] Paste multi locale JSON:`, state.currentData.cachedVideoData.videoPrompt);
-                console.log(`[GrokSpirit] Locales:`, Object.keys(state.currentData.locales));
-            } else {
-                state.currentData.cachedVideoData.videoPrompt = JSON.stringify(clipboardData);
-                console.log(`[GrokSpirit] Paste JSON:`, state.currentData.cachedVideoData.videoPrompt);
-            }
+    //         //粘贴的是文本
+    //         if (!clipboardData) {
+    //             clipboardData = state.currentData.cachedVideoData.videoPrompt = trimmedText;
+    //             console.log(`[GrokSpirit] Paste plain Text:`, trimmedText);
+    //         } else if (clipboardData.en) {
+    //             //如果是多语言
+    //             state.currentData.cachedVideoData.videoPrompt = JSON.stringify(clipboardData.en);
+    //             delete clipboardData.en;
+    //             state.currentData.locales = clipboardData
+    //             console.log(`[GrokSpirit] Paste multi locale JSON:`, state.currentData.cachedVideoData.videoPrompt);
+    //             console.log(`[GrokSpirit] Locales:`, Object.keys(state.currentData.locales));
+    //         } else {
+    //             state.currentData.cachedVideoData.videoPrompt = JSON.stringify(clipboardData);
+    //             console.log(`[GrokSpirit] Paste JSON:`, state.currentData.cachedVideoData.videoPrompt);
+    //         }
 
-            updateResultPanel();
-            //
-            const promptInput = findPromptInput();
-            if (promptInput) {
-                promptInput.value = promptInput.textContent = state.currentData.cachedVideoData.videoPrompt || '';
-                promptInput.dispatchEvent(new Event('input', { bubbles: true }));
-            }
+    //         updateResultPanel();
+    //         //
+    //         const promptInput = findPromptInput();
+    //         if (promptInput) {
+    //             promptInput.value = promptInput.textContent = state.currentData.cachedVideoData.videoPrompt || '';
+    //             promptInput.dispatchEvent(new Event('input', { bubbles: true }));
+    //         }
 
-            console.log('[GrokSpirit] Clipboard JSON merged successfully.');
-        } catch (error) {
-            console.error('[GrokSpirit] Failed to read clipboard content:', error);
-        }
-    }
+    //         console.log('[GrokSpirit] Clipboard JSON merged successfully.');
+    //     } catch (error) {
+    //         console.error('[GrokSpirit] Failed to read clipboard content:', error);
+    //     }
+    // }
     function handleDownloadAll() {
         if (!state.currentData.cachedVideoData?.videoUrl) {
             console.error('[GrokSpirit] No video URL available for download');
@@ -705,7 +727,7 @@
 
         const payload = {
             action: 'grok-spirit-download',
-            referer: state.currentUrl,
+            referer: state.currentDataKey,
             videoInfo: {
                 videoId: state.currentData.cachedVideoData.videoId,
                 videoUrl: state.currentData.cachedVideoData.videoUrl,
@@ -740,7 +762,7 @@
     }
     async function mountResultPanel() {
         let container = await window.GrokSpiritUtils.waitForSelector(() => findOperationContainer());
-        container.parentNode.insertBefore(state.resultPanel, container.nextSibling);
+        container.parentNode.parentNode.insertBefore(state.resultPanel, container.nextSibling);
 
         // Remove overflow-hidden from parent containers to ensure panel is fully visible
         // Find the element with classes: flex w-full h-full overflow-hidden @container/mainview relative
@@ -760,7 +782,10 @@
         }
     }
     function updateResultPanel() {
-        updateGenImagesStatus();
+        if (state.resultPanel && state.currentDataKey) {
+            state.resultPanel.setAttribute('data-key', state.currentDataKey);
+        }
+        //updateGenImagesStatus();
         updateSpicyStatus();
         updateProcessingLayer();
         updateFolderInput();
@@ -774,14 +799,14 @@
             spicyBtn.classList.add('gs-active');
         }
     }
-    function updateGenImagesStatus() {
-        const genImagesBtn = state.resultPanel.querySelector('.gs-btn-gen-images');
-        if (!genImagesBtn) return;
-        genImagesBtn.classList.remove('gs-active');
-        if (state.currentData.genImages === true) {
-            genImagesBtn.classList.add('gs-active');
-        }
-    }
+    // function updateGenImagesStatus() {
+    //     const genImagesBtn = state.resultPanel.querySelector('.gs-btn-gen-images');
+    //     if (!genImagesBtn) return;
+    //     genImagesBtn.classList.remove('gs-active');
+    //     if (state.currentData.genImages === true) {
+    //         genImagesBtn.classList.add('gs-active');
+    //     }
+    // }
     function updateProcessingLayer() {
         const statusContainer = state.resultPanel.querySelector('.gs-status');
         statusContainer.className = `gs-status ${statusClass[state.currentData.processingStatus]}`;

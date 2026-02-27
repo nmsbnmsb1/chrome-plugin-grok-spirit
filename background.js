@@ -64,7 +64,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const ORIG_FETCH = window.fetch;
             function hookFetch(input, init) {
               let p;
-              let referer = document.referrer || location.href;
+              let referer = document.querySelector('#gs-result-panel')?.getAttribute('data-key') || document.referrer || location.href;
               try {
                 const url = typeof input === 'string' ? input : (input && input.url) || '';
                 const method = (init && init.method) || (typeof input === 'object' && input && input.method) || 'GET';
@@ -95,10 +95,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                       const decoder = new TextDecoder();
                       var buf = '';
                       (async function () {
+                        const chunks = [];
                         for (; ;) {
                           const r = await reader.read();
-                          if (r.done) break;
-                          buf += decoder.decode(r.value, { stream: true });
+                          if (!r.done) {
+                            buf += decoder.decode(r.value, { stream: true });
+                          } else {
+                            buf += decoder.decode();
+                          }
                           var idx;
                           while ((idx = buf.indexOf('\n')) >= 0) {
                             var line = buf.slice(0, idx).trim();
@@ -106,13 +110,41 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                             if (!line) continue;
                             try {
                               var json = JSON.parse(line);
-                              if (json && json.result && json.result.response && json.result.response.streamingVideoGenerationResponse) {
-                                window.postMessage({ source: 'grok-spirit-fetch', referer, type: 'line', data: json }, '*');
+                              if (json && json.result && json.result.response) {
+                                chunks.push(json);
                               }
-                            } catch (e) { }
+                            } catch (e) { console.error('[GrokSpirit] JSON parse error on chunk:', e); }
+                          }
+                          if (r.done) {
+                            console.log(`[GrokSpirit] Stream done. Total chunks: ${chunks.length}`);
+                            let lastValidVideoInfo = null;
+                            let originalPrompt = null;
+                            for (const item of chunks) {
+                              const payload = item.result.response.streamingVideoGenerationResponse;
+                              if (payload) {
+                                if (payload.progress !== undefined && payload.progress < 5 && typeof payload.videoPrompt === 'string') {
+                                  if (!originalPrompt) originalPrompt = payload.videoPrompt;
+                                }
+                                lastValidVideoInfo = payload;
+                              }
+                            }
+                            console.log(`[GrokSpirit] lastValidVideoInfo:`, lastValidVideoInfo);
+                            if (lastValidVideoInfo && lastValidVideoInfo.progress === 100 && lastValidVideoInfo.videoUrl) {
+                              lastValidVideoInfo.originalPrompt = originalPrompt;
+                              lastValidVideoInfo.generated_prompt = lastValidVideoInfo.videoPrompt;
+                              console.log(`[GrokSpirit] Sending completed event`);
+                              try { window.postMessage({ source: 'grok-spirit-fetch', referer, type: 'status', status: 'completed', data: lastValidVideoInfo }, '*'); } catch (e) { console.error('[GrokSpirit] Err posting completed:', e); }
+                            } else {
+                              console.log(`[GrokSpirit] Sending failed event (progress or url issue)`);
+                              try { window.postMessage({ source: 'grok-spirit-fetch', referer, type: 'status', status: 'failed' }, '*'); } catch (e) { console.error('[GrokSpirit] Err posting failed:', e); }
+                            }
+                            break;
                           }
                         }
-                      })().catch(function () { });
+                      })().catch(function (e) {
+                        console.error('[GrokSpirit] Stream reader catch:', e);
+                        try { window.postMessage({ source: 'grok-spirit-fetch', referer, type: 'status', status: 'failed' }, '*'); } catch (e) { }
+                      });
                     } catch (e) { }
                   }).catch(function () { });
                 } else {
@@ -125,27 +157,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             Object.defineProperty(window, 'fetch', { value: hookFetch, configurable: true, writable: true });
 
             //重载websocket
-            const ORIG_WS_SEND = WebSocket.prototype.send;
-            WebSocket.prototype.send = function (data) {
-              // 在这里决定“是否允许发送”
-              if (window.location.href.indexOf('/imagine/post/') !== -1) {
-                try {
-                  // 若 data 是 JSON
-                  const payload = JSON.parse(data);
-                  // 阻断生成图片的方法
-                  if (payload.type == 'conversation.item.create') {
-                    if (!document.querySelector('.gs-btn-gen-images')?.classList.contains('gs-active')) {
-                      console.warn('Blocked WebSocket message:', data);
-                      return;
-                    }
-                  }
-                } catch (_) {
-                  // 非 JSON 的情况，也可以做字符串分析
-                }
-              }
-              //
-              return ORIG_WS_SEND.apply(this, arguments);
-            };
+            // const ORIG_WS_SEND = WebSocket.prototype.send;
+            // WebSocket.prototype.send = function (data) {
+            //   // 在这里决定“是否允许发送”
+            //   if (window.location.href.indexOf('/imagine/post/') !== -1) {
+            //     try {
+            //       // 若 data 是 JSON
+            //       const payload = JSON.parse(data);
+            //       // 阻断生成图片的方法
+            //       if (payload.type == 'conversation.item.create') {
+            //         if (!document.querySelector('.gs-btn-gen-images')?.classList.contains('gs-active')) {
+            //           console.warn('Blocked WebSocket message:', data);
+            //           return;
+            //         }
+            //       }
+            //     } catch (_) {
+            //       // 非 JSON 的情况，也可以做字符串分析
+            //     }
+            //   }
+            //   //
+            //   return ORIG_WS_SEND.apply(this, arguments);
+            // };
 
           } catch (e) { }
         }
