@@ -1,149 +1,182 @@
 (function () {
 
     const CSS = `
-        .gs-status {
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 500;
-            margin-right: 8px;
-            flex-shrink: 0;
-        }
 
-        .gs-status-processing {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
 
-        .gs-status-failed {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .gs-status-completed {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .gs-status-generating-hd {
-            background-color: #007bff;
-            color: #fff;
-            border: 1px solid #0056b3;
-            animation: gs-pulse-animation 1.5s infinite;
-        }
-
-        @keyframes gs-pulse-animation {
-            0% {
-                box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.4);
-            }
-
-            70% {
-                box-shadow: 0 0 0 10px rgba(0, 123, 255, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
-            }
-        }
-
-        .gs-btn {
-            padding: 4px 8px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
+        /* Floating Input/Button general styles */
+        .gs-floating-input {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--border-l1, rgba(0,0,0,0.1));
+            background: var(--surface-l2, #f5f5f5);
+            color: var(--fg-primary, #000);
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            outline: none;
             transition: all 0.2s;
+            margin-top: 2px;
+            margin-bottom: 2px;
         }
 
-        .gs-btn:hover {
-            opacity: 0.8;
-            border-color: #007bff;
+        .gs-floating-input:focus {
+            border-color: #8247e5;
+            background: var(--surface-l3, #eeeeee);
+            box-shadow: 0 0 8px rgba(130, 71, 229, 0.2);
         }
 
-        .gs-btn-clipboard {
-            background: #007bff;
-            color: #fff;
-            border-color: #007bff;
-        }
-
-        .gs-btn-clipboard:hover {
-            background: #0069d9;
-            border-color: #0056b3;
-        }
-
-        .gs-btn-spicy {
-            background: #f8a488;
-            color: #fff;
-            border-color: #e76f51;
-        }
-
-        .gs-btn-spicy:hover {
-            background: #f4a261;
-            border-color: #f4a261;
-        }
-
-        .gs-btn-spicy.gs-active {
-            background: #d04a27;
-            border-color: #d04a27;
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        .gs-btn-gen-images {
-            background: #f48fb1;
-            color: #fff;
-            border-color: #ec407a;
-        }
-
-        .gs-btn-gen-images:hover {
-            background: #f06292;
-            border-color: #d81b60;
-        }
-
-        .gs-btn-gen-images.gs-active {
-            background: #c2185b;
-            border-color: #880e4f;
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        .gs-btn-download {
-            background: #6f42c1;
-            color: #fff;
-            border-color: #6f42c1;
-        }
-
-        .gs-btn-download:hover {
-            background: #5a32a3;
-            border-color: #4c2d85;
+        .gs-ui-divider {
+            width: 28px;
+            height: 1.5px;
+            background: var(--border-l1, rgba(0,0,0,0.4));
+            margin: 7px auto;
+            opacity: 1;
+            border-radius: 1px;
         }
 
         @media (prefers-color-scheme: dark) {
-            #gs-result-panel {
-                background: #2d2d2d !important;
-                border-color: #444 !important;
-                color: #f1f1f1 !important;
+            .gs-ui-divider {
+                background: rgba(255,255,255,0.45);
             }
+        }
 
-            .gs-btn {
+        /* Folder Popup Styles */
+        .gs-folder-popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.1);
+            backdrop-filter: blur(2px);
+            z-index: 10000;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .gs-folder-popup-overlay.gs-visible {
+            display: block;
+            opacity: 1;
+        }
+
+        .gs-folder-popup-panel {
+            position: absolute;
+            background: var(--bg-surface-l1, #ffffff);
+            border: 1px solid var(--border-l1, rgba(0,0,0,0.1));
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 10001;
+            transform: scale(0.9) translateX(10px);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 260px;
+        }
+        .gs-folder-popup-panel.gs-visible {
+            transform: scale(1) translateX(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .gs-popup-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .gs-popup-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--fg-secondary, #666);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 4px;
+        }
+
+        .gs-folder-popup-input {
+            padding: 10px 12px;
+            border: 1px solid var(--border-l1, #ced4da);
+            border-radius: 10px;
+            font-size: 13px;
+            outline: none;
+            background: var(--bg-surface-l2, #f9f9f9);
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+        .gs-folder-popup-input:focus {
+            border-color: #8247e5;
+        }
+
+        .gs-folder-popup-confirm {
+            background: #8247e5;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 4px;
+        }
+        .gs-folder-popup-confirm:hover {
+            background: #6f32cf;
+        }
+        .gs-folder-popup-confirm:active {
+            transform: scale(0.98);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .gs-floating-input {
                 background: #3c3c3c;
                 color: #f1f1f1;
-                border-color: #555;
+                border-color: #444;
             }
-
-            .gs-btn:hover {
-                background: #555;
-                border-color: #777;
+            .gs-floating-input:focus {
+                background: #444;
+            }
+            .gs-folder-popup-panel {
+                background: #252525;
+                border-color: #333;
+                color: #f1f1f1;
+            }
+            .gs-folder-popup-input {
+                background: #1a1a1a;
+                border-color: #333;
+                color: #fff;
+            }
+            .gs-popup-label {
+                color: #aaa;
             }
         }
 
-        #gs-result-panel[data-theme="light"] {
-            color-scheme: light;
+        /* Status Animations */
+        @keyframes gs-spin-3d {
+            0% { transform: perspective(400px) rotateY(0deg); }
+            100% { transform: perspective(400px) rotateY(360deg); }
         }
 
-        #gs-result-panel[data-theme="dark"] {
-            color-scheme: dark;
+        /* Status Themes (Base Colors) */
+        .gs-floating-download-btn.gs-theme-regular {
+            background: rgba(130, 71, 229, 0.1) !important;
+            color: #8247e5 !important;
+        }
+        .gs-floating-download-btn.gs-theme-hd {
+            background: rgba(245, 158, 11, 0.1) !important;
+            color: #f59e0b !important;
+        }
+
+        .gs-floating-download-btn.gs-status-processing .gs-icon-container, 
+        .gs-floating-download-btn.gs-status-generating-hd .gs-icon-container {
+            animation: gs-spin-3d 2.5s infinite ease-in-out;
+            transform-style: preserve-3d;
         }
 
     `;
@@ -167,7 +200,12 @@
         currentUrl: window.location.href,
         currentDataKey: '',
         currentData: null,
-        resultPanel: null
+        //
+        floatingSpicyBtn: null,
+        floatingDownloadBtn: null,
+        floatingSettingsBtn: null,
+        floatingFolderPopup: null,
+        floatingDivider: null
     }
 
     // #region 初始化全局侦听和处理
@@ -204,10 +242,10 @@
     chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
         if (request.source === 'grok-spirit-generate-hd') {
             let referer = request.referer;
-            let { key, data } = await getKeyAndDataByReferer(referer);
+            let { key, data } = await getKeyAndDataByReferer(referer.key);
             if (data) {
-                if (!request.status) handleVideoProcessing('generating_hd', key, data, referer);
-                else handleVideoProcessing('completed', key, data, referer);
+                if (!request.status) handleVideoProcessing('generating_hd', key, data);
+                else handleVideoProcessing('completed', key, data);
             }
         }
     });
@@ -215,7 +253,6 @@
     async function getKeyAndDataByReferer(referer) {
         let key;
         let data;
-        console.log(state.currentUrl, referer);
         if (state.currentDataKey === referer) {
             key = state.currentDataKey;
             data = state.currentData;
@@ -232,7 +269,7 @@
         data.processingStatus = status;
         data.isProcessing = status !== 'failed' && status !== 'completed';
         await saveData(key, data);
-        if (data.id === state.currentData?.id) updateResultPanel();
+        if (data.id === state.currentData?.id) updateGSUI();
     }
     async function handleVideoDetected(videoInfo, key, data) {
         console.log(`[GrokSpirit] handleVideoDetected called with videoInfo:`, videoInfo, 'key:', key);
@@ -258,7 +295,7 @@
         data.processingStatus = 'completed';
         data.isProcessing = false; // Processing completed, reset state
         await saveData(key, data);
-        if (data.id === state.currentData?.id) updateResultPanel();
+        if (data.id === state.currentData?.id) updateGSUI();
     }
     function extractOriginalPrompt(videoInfo) {
         // Original prompt is now directly passed from background script
@@ -352,8 +389,8 @@
             console.log('[GrokSpirit] start on', url);
 
             state.currentUrl = url;
-            initResultPanel();
-            await mountResultPanel();
+            initGSUI();
+            await mountGSUI();
             await setData();
 
         } else if (state.currentUrl !== url) {
@@ -368,7 +405,7 @@
                 // 切换页面时，需要清空过去的 key 强制抓取新页面的图片/UUID
                 if (state.currentDataKey) {
                     if (state.currentData?.cachedVideoData?.videoUrl) {
-                        await window.GrokSpiritUtils.writeStorage(state.currentDataKey, state.currentData);
+                        await saveData();
                     }
                     state.currentDataKey = state.currentData = null;
                 }
@@ -395,7 +432,27 @@
         console.log('[GrokSpirit] stop');
 
         state.currentUrl = null;
-        state.resultPanel.remove();
+        if (state.floatingSpicyBtn) {
+            state.floatingSpicyBtn.remove();
+            state.floatingSpicyBtn = null;
+        }
+        if (state.floatingDownloadBtn) {
+            state.floatingDownloadBtn.remove();
+            state.floatingDownloadBtn = null;
+        }
+        if (state.floatingDivider) {
+            state.floatingDivider.remove();
+            state.floatingDivider = null;
+        }
+        if (state.floatingSettingsBtn) {
+            state.floatingSettingsBtn.remove();
+            state.floatingSettingsBtn = null;
+        }
+        if (state.floatingFolderPopup) {
+            state.floatingFolderPopup.overlay.remove();
+            state.floatingFolderPopup.panel.remove();
+            state.floatingFolderPopup = null;
+        }
 
         if (state.currentDataKey) {
             if (state.currentData?.cachedVideoData?.videoUrl) await saveData();
@@ -416,6 +473,10 @@
     }
     function findPromptInput() {
         return findPromptLayer()?.querySelector('textarea[aria-required="true"]')
+    }
+    function findSidebarButtons() {
+        const targetBtn = document.querySelector('button[aria-label="Unsave"]') || document.querySelector('button[aria-label="Save"]');
+        return targetBtn?.parentElement;
     }
     function findVideo() {
         return document.querySelector('video[id="sd-video"]')
@@ -519,7 +580,7 @@
         //     }
         // }
         //
-        updateResultPanel();
+        updateGSUI();
     }
     function generateEmptyVideoData(urlKey) {
         let urlId = window.GrokSpiritUtils.extractLastUUId(urlKey);
@@ -542,174 +603,194 @@
     }
 
     // UI
-    function initResultPanel() {
-        if (state.resultPanel) return;
-
-        console.log(`[GrokSpirit] Init Result Panel`);
-
-        state.resultPanel = document.createElement('div');
-        state.resultPanel.id = 'gs-result-panel';
-        //w-full max-w-4xl mx-auto
-        state.resultPanel.style.cssText = `
-                display: block;
-                width: 100%;
-                max-width: 56rem;
-                margin-left: auto;
-                margin-right: auto;
-                margin-top: 4px;
-                margin-bottom: 40px;
-                background: #f8f9fa;
-                border: 1px solid #e9ecef;
-                border-radius: 12px;
-                padding: 16px;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                clear: both;
-                position: relative;
-                z-index: 1;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        `;
-        state.resultPanel.innerHTML = `
-                <div class="gs-json-controls" style="display:flex; flex-direction:column; gap:8px; margin-bottom:8px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
-                    <!-- 左侧按钮组 -->
-                    <div style="display:flex; gap:6px;">
-                        <!--<button type="button" class="gs-btn gs-btn-clipboard" title="Copy from clipboard">📥 Clipboard</button>-->
-                        <!--<button type="button" class="gs-btn gs-btn-gen-images" title="Enable image generation">🎨 Gen Images</button>-->
-                        <button type="button" class="gs-btn gs-btn-spicy" title="Enable spicy mode">🌶️ Spicy Mode</button>
-                    </div>
-                    <!-- 右侧状态 + 按钮 -->
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span class="gs-status"></span>
-                        <button type="button" class="gs-btn gs-btn-download" title="Download">💾 Download</button>
-                    </div>
-                    </div>
-                    <!-- 第二行输入组 -->
-                    <div class="gs-input-group" style="display:flex; align-items:center; gap:6px; width:100%;">
-                        <input id="gs-folder-input" type="text" placeholder="文件夹名" style="flex:1; min-width:120px; padding:4px 8px; border:1px solid #ced4da; border-radius:6px; font-size:12px;" />
-                        <input id="gs-sequence-input" type="text" placeholder="序号" style="width:80px; padding:4px 8px; border:1px solid #ced4da; border-radius:6px; font-size:12px; text-align:center;" />
-                    </div>
-                </div>
-        `;
-
-        // JSON editor buttons
-        // const clipboardBtn = state.resultPanel.querySelector('.gs-btn-clipboard');
-        // if (clipboardBtn) {
-        //     clipboardBtn.addEventListener('click', (event) => {
-        //         event.preventDefault();
-        //         event.stopPropagation();
-        //         handleClipboardCopy();
-        //     });
-        // }
-
-        // const genImagesBtn = state.resultPanel.querySelector('.gs-btn-gen-images');
-        // if (genImagesBtn) {
-        //     genImagesBtn.addEventListener('click', async (event) => {
-        //         event.preventDefault();
-        //         event.stopPropagation();
-        //         //
-        //         state.currentData.genImages = !state.currentData.genImages;
-        //         updateGenImagesStatus();
-        //         await saveData();
-        //         //刷新页面
-        //         window.location.reload();
-        //     });
-        // }
-
-        const spicyBtn = state.resultPanel.querySelector('.gs-btn-spicy');
-        if (spicyBtn) {
-            spicyBtn.addEventListener('click', async (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                //
-                state.currentData.spicy = !state.currentData.spicy;
-                updateSpicyStatus();
-                await saveData();
-            });
-        }
-
-        const downloadBtn = state.resultPanel.querySelector('.gs-btn-download');
-        if (downloadBtn) {
-            downloadBtn.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                handleDownloadAll();
-            });
-        }
-
-        const folderInput = state.resultPanel.querySelector('#gs-folder-input');
-        if (folderInput) {
-            folderInput.addEventListener('blur', async (event) => {
-                state.currentData.folderName = event.target.value;
-                await saveData();
-            });
-        }
-
-        const sequenceInput = state.resultPanel.querySelector('#gs-sequence-input');
-        if (sequenceInput) {
-            sequenceInput.addEventListener('blur', async (event) => {
-                let sequence = parseInt(event.target.value, 10);
-                if (!isNaN(sequence)) {
-                    state.currentData.sequence = sequence;
-                    await saveData();
-                }
-            });
-        }
+    function initGSUI() {
+        createFloatingDivider();
+        createFloatingSpicyButton();
+        createFloatingSettingsButton();
+        createFloatingDownloadButton();
     }
-    // async function handleClipboardCopy() {
-    //     if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
-    //         console.warn('[GrokSpirit] Clipboard API is not available in this context.');
-    //         return null;
-    //     }
+    function createFloatingSpicyButton() {
+        if (state.floatingSpicyBtn) return state.floatingSpicyBtn;
 
-    //     try {
-    //         const clipboardText = await navigator.clipboard.readText();
-    //         const trimmedText = clipboardText.trim();
-    //         if (!trimmedText) {
-    //             console.warn('[GrokSpirit] Clipboard is empty or contains only whitespace.');
-    //             return null;
-    //         }
+        const btn = document.createElement('button');
+        btn.className = 'gs-floating-spicy-btn inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-100 select-none border border-transparent rounded-full overflow-hidden h-10 w-10 p-2 bg-surface-l2 text-primary hover:bg-surface-l3';
+        btn.setAttribute('aria-label', 'Spicy Mode');
+        btn.style.marginBottom = '2px'; // Add slight space above Unsave
+        btn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Stem (Green Part) -->
+                <path d="M12 3C12 3 13 4 12 6C11 8 9 9 9 9" stroke="#2D6A4F" stroke-width="2.5" stroke-linecap="round"/>
+                <!-- Body (The Chili) -->
+                <path d="M16 8C14 6 11 6 9 9C6 13 5 18 8 20.5C11 23 16 22 18.5 19.5C21 17 21 13 18.5 10.5L16 8Z" fill="#E63946" stroke="#9B2226" stroke-width="1"/>
+                <!-- Highlight/Reflect -->
+                <path d="M16.5 13C16.5 13 17.5 14.5 17 16.5" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+            </svg>
+        `;
 
-    //         //重置
-    //         state.currentData.cachedVideoData.videoPrompt = '';
-    //         delete state.currentData.locales;
+        btn.onclick = async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            state.currentData.spicy = !state.currentData.spicy;
+            updateSpicyStatus();
+            await saveData();
+        };
 
-    //         //处理粘贴的数据
-    //         let clipboardData;
-    //         try {
-    //             clipboardData = JSON.parse(trimmedText);
-    //         } catch (e) {
-    //             console.warn('[GrokSpirit] Clipboard is not a valid JSON:', e);
-    //         }
+        state.floatingSpicyBtn = btn;
+        return btn;
+    }
+    function createFloatingDivider() {
+        if (state.floatingDivider) return state.floatingDivider;
+        const div = document.createElement('div');
+        div.className = 'gs-ui-divider';
+        state.floatingDivider = div;
+        return div;
+    }
+    function createFloatingSettingsButton() {
+        if (state.floatingSettingsBtn) return state.floatingSettingsBtn;
 
-    //         //粘贴的是文本
-    //         if (!clipboardData) {
-    //             clipboardData = state.currentData.cachedVideoData.videoPrompt = trimmedText;
-    //             console.log(`[GrokSpirit] Paste plain Text:`, trimmedText);
-    //         } else if (clipboardData.en) {
-    //             //如果是多语言
-    //             state.currentData.cachedVideoData.videoPrompt = JSON.stringify(clipboardData.en);
-    //             delete clipboardData.en;
-    //             state.currentData.locales = clipboardData
-    //             console.log(`[GrokSpirit] Paste multi locale JSON:`, state.currentData.cachedVideoData.videoPrompt);
-    //             console.log(`[GrokSpirit] Locales:`, Object.keys(state.currentData.locales));
-    //         } else {
-    //             state.currentData.cachedVideoData.videoPrompt = JSON.stringify(clipboardData);
-    //             console.log(`[GrokSpirit] Paste JSON:`, state.currentData.cachedVideoData.videoPrompt);
-    //         }
+        const btn = document.createElement('button');
+        btn.className = 'gs-floating-settings-btn inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-bold leading-[normal] cursor-pointer transition-all duration-100 select-none border border-transparent rounded-full overflow-hidden h-10 w-10 p-2 bg-surface-l2 text-primary hover:bg-surface-l3';
+        btn.style.border = '1px solid var(--border-l1, rgba(0,0,0,0.1))';
+        btn.setAttribute('aria-label', 'Plugin Settings');
+        btn.style.marginTop = '2px';
+        btn.style.marginBottom = '2px';
 
-    //         updateResultPanel();
-    //         //
-    //         const promptInput = findPromptInput();
-    //         if (promptInput) {
-    //             promptInput.value = promptInput.textContent = state.currentData.cachedVideoData.videoPrompt || '';
-    //             promptInput.dispatchEvent(new Event('input', { bubbles: true }));
-    //         }
+        btn.innerHTML = `1`; // Default
 
-    //         console.log('[GrokSpirit] Clipboard JSON merged successfully.');
-    //     } catch (error) {
-    //         console.error('[GrokSpirit] Failed to read clipboard content:', error);
-    //     }
-    // }
+        btn.onclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleSettingsPopup(btn);
+        };
+
+        state.floatingSettingsBtn = btn;
+        return btn;
+    }
+    function toggleSettingsPopup(anchorBtn) {
+        if (!state.floatingFolderPopup) {
+            // Create Popup UI
+            const overlay = document.createElement('div');
+            overlay.className = 'gs-folder-popup-overlay';
+
+            const panel = document.createElement('div');
+            panel.className = 'gs-folder-popup-panel';
+            panel.innerHTML = `
+                <div class="gs-popup-row">
+                    <label class="gs-popup-label">Save Folder Path</label>
+                    <input type="text" class="gs-folder-popup-input gs-path-input" placeholder="输入文件夹保存路径..." />
+                </div>
+                <div class="gs-popup-row">
+                    <label class="gs-popup-label">Next Sequence Number</label>
+                    <input type="number" class="gs-folder-popup-input gs-seq-input" placeholder="序号" style="text-align: center; width: 100px;" />
+                </div>
+                <button class="gs-folder-popup-confirm" title="Save Settings">
+                    <span>Confirm</span>
+                </button>
+            `;
+
+            const pathInput = panel.querySelector('.gs-path-input');
+            const seqInput = panel.querySelector('.gs-seq-input');
+            const confirmBtn = panel.querySelector('.gs-folder-popup-confirm');
+
+            const saveAndClose = async () => {
+                const newFolder = pathInput.value.trim();
+                const newSeq = parseInt(seqInput.value, 10);
+
+                state.currentData.folderName = newFolder;
+                if (!isNaN(newSeq)) state.currentData.sequence = newSeq;
+
+                await saveData();
+                updateSequence();
+                hide();
+            };
+
+            const hide = () => {
+                overlay.classList.remove('gs-visible');
+                panel.classList.remove('gs-visible');
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 300);
+            };
+
+            overlay.onclick = hide;
+            confirmBtn.onclick = saveAndClose;
+
+            const handleEnter = (e) => { if (e.key === 'Enter') saveAndClose(); };
+            pathInput.onkeydown = handleEnter;
+            seqInput.onkeydown = handleEnter;
+
+            document.body.appendChild(overlay);
+            document.body.appendChild(panel);
+
+            state.floatingFolderPopup = { overlay, panel, pathInput, seqInput };
+        }
+
+        const { overlay, panel, pathInput, seqInput } = state.floatingFolderPopup;
+
+        if (panel.classList.contains('gs-visible')) {
+            overlay.classList.remove('gs-visible');
+            panel.classList.remove('gs-visible');
+            return;
+        }
+
+        // Position panel near the button
+        const rect = anchorBtn.getBoundingClientRect();
+        panel.style.top = `${rect.top + window.scrollY - 30}px`;
+        panel.style.left = `${rect.left + window.scrollX - 280}px`;
+
+        pathInput.value = state.currentData.folderName || '';
+        seqInput.value = state.currentData.sequence || 1;
+
+        overlay.style.display = 'block';
+        setTimeout(() => {
+            overlay.classList.add('gs-visible');
+            panel.classList.add('gs-visible');
+            pathInput.focus();
+            pathInput.setSelectionRange(0, 0);
+            pathInput.scrollLeft = 0; // Explicitly scroll to the beginning
+        }, 10);
+    }
+    function createFloatingDownloadButton() {
+        if (state.floatingDownloadBtn) return state.floatingDownloadBtn;
+
+        const btn = document.createElement('button');
+        btn.className = 'gs-floating-download-btn inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium leading-[normal] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 select-none border border-transparent rounded-full overflow-hidden h-10 w-10 p-2 bg-surface-l2 text-primary hover:bg-surface-l3';
+        btn.setAttribute('aria-label', 'GrokSpirit Download');
+        btn.style.marginTop = '2px';
+        btn.style.position = 'relative';
+
+        btn.innerHTML = `
+            <div class="gs-icon-container" style="position:relative; width:22px; height:22px; pointer-events:none; z-index:1; display:flex; align-items:center; justify-content:center;">
+                <!-- Base Icon (Floppy/Save) -->
+                <svg class="gs-icon-base" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="transition: opacity 0.3s, color 0.3s; opacity: 1;">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M17 21v-8H7v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M7 3v5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+
+                <!-- Checkmark Icon - Badge style at top-right -->
+                <svg class="gs-icon-check" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute; top:-4px; right:-4px; width:14px; height:14px; opacity:0; transform: scale(0.5); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); filter: drop-shadow(0 0 1px white);">
+                    <path d="M20 6L9 17L4 12" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M20 6L9 17L4 12" stroke="#28a745" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+
+                <!-- Failed Icon (X) - Badge style at top-right -->
+                <svg class="gs-icon-fail" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:absolute; top:-4px; right:-4px; width:14px; height:14px; opacity:0; transform: scale(0.5); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); filter: drop-shadow(0 0 1px white);">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M18 6L6 18M6 6l12 12" stroke="#dc3545" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        `;
+
+        btn.onclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            handleDownloadAll();
+        };
+
+        state.floatingDownloadBtn = btn;
+        return btn;
+    }
     function handleDownloadAll() {
         if (!state.currentData.cachedVideoData?.videoUrl) {
             console.error('[GrokSpirit] No video URL available for download');
@@ -720,7 +801,7 @@
         try { structuredData = JSON.parse(state.currentData.cachedVideoData.videoPrompt); } catch (e) { }
         if (!structuredData) {
             structuredData = state.currentData.cachedVideoData.videoPrompt;
-        } else if (currentData.locales) {
+        } else if (state.currentData.locales) {
             structuredData = { en: { ...structuredData }, ...state.currentData.locales }
         }
 
@@ -750,81 +831,127 @@
                 return;
             }
             //保存状态
-            let { key, data } = await getKeyAndDataByReferer(payload.referer);
+            let { key, data } = await getKeyAndDataByReferer(payload.referer.key);
             //if (!data) data = generateEmptyVideoData(payload.referer); impossible
             data.sequence += 1;
             await saveData(key, data);
             if (data.id === state.currentData?.id) {
-                updateSequenceInput();
+                updateSequence();
             }
         });
     }
-    async function mountResultPanel() {
-        let container = await window.GrokSpiritUtils.waitForSelector(() => findOperationContainer());
-        container.parentNode.parentNode.insertBefore(state.resultPanel, container.nextSibling);
 
-        // Remove overflow-hidden from parent containers to ensure panel is fully visible
-        // Find the element with classes: flex w-full h-full overflow-hidden @container/mainview relative
-        let currentNode = container;
-        for (let i = 0; i < 15 && currentNode; i++) {
-            currentNode = currentNode.parentNode;
-            if (currentNode && currentNode.classList) {
-                const classList = currentNode.classList;
-                // Check if this element has overflow-hidden
-                if (classList.contains('overflow-hidden')) {
-                    // Remove overflow-hidden to allow content to be visible
-                    currentNode.classList.remove('overflow-hidden');
-                    console.log('[GrokSpirit] Removed overflow-hidden from parent container');
-                    // Continue searching in case there are multiple levels
-                }
+    async function mountGSUI() {
+        const sidebar = await window.GrokSpiritUtils.waitForSelector(() => findSidebarButtons());
+        if (sidebar) {
+            // Append components in order: Divider -> Spicy -> Settings -> Download
+            if (state.floatingDivider && !sidebar.contains(state.floatingDivider)) {
+                sidebar.appendChild(state.floatingDivider);
+            }
+            if (state.floatingSpicyBtn && !sidebar.contains(state.floatingSpicyBtn)) {
+                sidebar.appendChild(state.floatingSpicyBtn);
+            }
+            if (state.floatingSettingsBtn && !sidebar.contains(state.floatingSettingsBtn)) {
+                sidebar.appendChild(state.floatingSettingsBtn);
+            }
+            if (state.floatingDownloadBtn && !sidebar.contains(state.floatingDownloadBtn)) {
+                sidebar.appendChild(state.floatingDownloadBtn);
+            }
+            console.log('[GrokSpirit] Mounted floating UI components in sidebar');
+        }
+    }
+
+    function updateGSUI() {
+        if (state.floatingDownloadBtn && state.currentDataKey) {
+            state.floatingDownloadBtn.setAttribute('data-key', state.currentDataKey);
+        }
+        updateSpicyStatus();
+        updateSequence();
+        updateProcessingLayer();
+    }
+    function updateSpicyStatus() {
+        if (state.floatingSpicyBtn) {
+            const isActive = state.currentData?.spicy === true;
+            state.floatingSpicyBtn.classList.toggle('gs-active', isActive);
+            if (isActive) {
+                state.floatingSpicyBtn.style.boxShadow = '0 0 12px rgba(255, 77, 79, 0.4)';
+                state.floatingSpicyBtn.style.borderColor = '#ff4d4f';
+                state.floatingSpicyBtn.style.background = 'rgba(255, 77, 79, 0.1)';
+            } else {
+                state.floatingSpicyBtn.style.boxShadow = '';
+                state.floatingSpicyBtn.style.borderColor = 'transparent';
+                state.floatingSpicyBtn.style.background = '';
             }
         }
     }
-    function updateResultPanel() {
-        if (state.resultPanel && state.currentDataKey) {
-            state.resultPanel.setAttribute('data-key', state.currentDataKey);
-        }
-        //updateGenImagesStatus();
-        updateSpicyStatus();
-        updateProcessingLayer();
-        updateFolderInput();
-        updateSequenceInput();
-    }
-    function updateSpicyStatus() {
-        const spicyBtn = state.resultPanel.querySelector('.gs-btn-spicy');
-        if (!spicyBtn) return;
-        spicyBtn.classList.remove('gs-active');
-        if (state.currentData.spicy === true) {
-            spicyBtn.classList.add('gs-active');
+    function updateSequence() {
+        if (!state.currentData) return;
+        const val = `${state.currentData.sequence || 1}`;
+
+        if (state.floatingSettingsBtn) {
+            state.floatingSettingsBtn.innerHTML = val;
         }
     }
-    // function updateGenImagesStatus() {
-    //     const genImagesBtn = state.resultPanel.querySelector('.gs-btn-gen-images');
-    //     if (!genImagesBtn) return;
-    //     genImagesBtn.classList.remove('gs-active');
-    //     if (state.currentData.genImages === true) {
-    //         genImagesBtn.classList.add('gs-active');
-    //     }
-    // }
     function updateProcessingLayer() {
-        const statusContainer = state.resultPanel.querySelector('.gs-status');
-        statusContainer.className = `gs-status ${statusClass[state.currentData.processingStatus]}`;
-        statusContainer.textContent = `${statusText[state.currentData.processingStatus] || ''}`;
-        if (state.currentData.processingStatus === 'completed') {
-            if (state.resultPanel.querySelector('.gs-btn-reset-sequence'))
-                state.resultPanel.querySelector('.gs-btn-reset-sequence').style.display = 'inline';
-        }
-    }
-    function updateFolderInput() {
-        const folderInput = state.resultPanel.querySelector('#gs-folder-input');
-        if (folderInput) {
-            folderInput.value = folderInput.textContent = state.currentData.folderName;
-        }
-    }
-    function updateSequenceInput() {
-        const sequenceInput = state.resultPanel.querySelector('#gs-sequence-input');
-        if (sequenceInput) {
-            sequenceInput.value = sequenceInput.textContent = `${state.currentData.sequence}`;
+        if (!state.currentData) return;
+        const status = state.currentData.processingStatus;
+
+        if (state.floatingDownloadBtn) {
+            const btn = state.floatingDownloadBtn;
+            const iconBase = btn.querySelector('.gs-icon-base');
+            const iconCheck = btn.querySelector('.gs-icon-check');
+            const iconFail = btn.querySelector('.gs-icon-fail');
+
+            btn.classList.remove('gs-status-processing', 'gs-status-completed', 'gs-status-failed', 'gs-status-generating-hd');
+
+            // Update Hover Text
+            btn.title = statusText[status] || 'GrokSpirit Download';
+
+            // Determine operation theme: Purple (Regular) vs Amber (HD)
+            if (status === 'generating_hd') {
+                btn.classList.remove('gs-theme-regular');
+                btn.classList.add('gs-theme-hd');
+            } else if (status === 'processing') {
+                btn.classList.remove('gs-theme-hd');
+                btn.classList.add('gs-theme-regular');
+            }
+            // (If status is completed/failed, we keep the previous theme class)
+
+            if (!btn.classList.contains('gs-theme-regular') && !btn.classList.contains('gs-theme-hd')) {
+                return;
+            }
+
+            if (status) {
+                const sType = statusClass[status];
+                btn.classList.add(sType);
+
+                if (status === 'processing' || status === 'generating_hd') {
+                    if (iconBase) iconBase.style.opacity = '1';
+                    if (iconCheck) { iconCheck.style.opacity = '0'; iconCheck.style.transform = 'scale(0.5)'; }
+                    if (iconFail) { iconFail.style.opacity = '0'; iconFail.style.transform = 'scale(0.5)'; }
+                } else if (status === 'completed') {
+                    if (iconBase) iconBase.style.opacity = '1';
+                    if (iconFail) { iconFail.style.opacity = '0'; iconFail.style.transform = 'scale(0.5)'; }
+                    if (iconCheck) { iconCheck.style.opacity = '1'; iconCheck.style.transform = 'scale(1)'; }
+
+                    setTimeout(() => {
+                        if (state.currentData?.processingStatus === 'completed') {
+                            if (iconCheck) { iconCheck.style.opacity = '0'; iconCheck.style.transform = 'scale(0.5)'; }
+                        }
+                    }, 3000);
+                } else if (status === 'failed') {
+                    if (iconBase) iconBase.style.opacity = '1';
+                    if (iconCheck) { iconCheck.style.opacity = '0'; iconCheck.style.transform = 'scale(0.5)'; }
+                    if (iconFail) {
+                        iconFail.style.opacity = '1';
+                        iconFail.style.transform = 'scale(1)';
+                    }
+                }
+            } else {
+                if (iconBase) iconBase.style.opacity = '1';
+                if (iconCheck) { iconCheck.style.opacity = '0'; iconCheck.style.transform = 'scale(0.5)'; }
+                if (iconFail) { iconFail.style.opacity = '0'; iconFail.style.transform = 'scale(0.5)'; }
+            }
         }
     }
 })()

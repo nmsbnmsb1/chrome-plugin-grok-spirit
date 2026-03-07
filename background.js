@@ -64,12 +64,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const ORIG_FETCH = window.fetch;
             function hookFetch(input, init) {
               let p;
-              let referer = document.querySelector('#gs-result-panel')?.getAttribute('data-key') || document.referrer || location.href;
+              let referer = document.querySelector('.gs-floating-download-btn')?.getAttribute('data-key') || document.referrer || location.href;
               try {
                 const url = typeof input === 'string' ? input : (input && input.url) || '';
                 const method = (init && init.method) || (typeof input === 'object' && input && input.method) || 'GET';
                 if (url.indexOf('/rest/app-chat/conversations') !== -1 && String(method).toUpperCase() === 'POST') {
-                  if (document.querySelector('.gs-btn-spicy')?.classList.contains('gs-active') && init.body) {
+                  if (document.querySelector('.gs-floating-spicy-btn')?.classList.contains('gs-active') && init.body) {
                     //在这里修改传递的参数
                     try {
                       let body = JSON.parse(init.body);
@@ -561,7 +561,7 @@ async function downloadVideoWithMeta(videoInfo, referer) {
       chrome.tabs.query({}, (tabs) => {
         const target = tabs.find(tab => tab.url === referer.url);
         if (target) {
-          chrome.tabs.sendMessage(target.id, { source: 'grok-spirit-generate-hd', referer: referer.key }).catch(() => { });
+          chrome.tabs.sendMessage(target.id, { source: 'grok-spirit-generate-hd', referer }).catch(() => { });
         }
       });
 
@@ -578,7 +578,7 @@ async function downloadVideoWithMeta(videoInfo, referer) {
       chrome.tabs.query({}, (tabs) => {
         const target = tabs.find(tab => tab.url === referer.url);
         if (target) {
-          chrome.tabs.sendMessage(target.id, { source: 'grok-spirit-generate-hd', referer: referer.key, status: 'completed' }).catch(() => { });
+          chrome.tabs.sendMessage(target.id, { source: 'grok-spirit-generate-hd', referer, status: 'completed' }).catch(() => { });
         }
       });
     }
@@ -616,7 +616,7 @@ async function downloadVideoWithMeta(videoInfo, referer) {
     // MV3 Service Worker doesn't support URL.createObjectURL, use data:URL instead
     const metaDataStr = JSON.stringify(downloadData, null, 2);
     const metaUrl = `data:application/json;charset=utf-8,${encodeURIComponent(metaDataStr)}`;
-    const jsonFilename = folderName ? `Grok/${folderName}/${sequence}.json` : `grok_video_${videoId}.json`;
+    const jsonFilename = folderName ? `Grok/${folderName}/${sequence}-${videoId}.json` : `grok_video_${videoId}-${videoId}.json`;
     // 防御模式开启时，使用文件名控制；否则依赖 downloads.download 的 filename 参数
     // if (isFilenameDefenseEnabled) {
     //   pendingFilenames[metaUrl] = jsonFilename;
@@ -625,7 +625,7 @@ async function downloadVideoWithMeta(videoInfo, referer) {
     await chrome.downloads.download({ url: metaUrl, filename: jsonFilename, conflictAction: 'uniquify', saveAs: false });
 
     // 2) Download video file, ensure custom filename with quality indicator
-    const videoFilename = folderName ? `Grok/${folderName}/${sequence}${isHd ? `_hd` : ''}.mp4` : `grok_video_${videoId}${isHd ? `_hd` : ''}.mp4`;
+    const videoFilename = folderName ? `Grok/${folderName}/${sequence}-${videoId}${isHd ? `.hd` : ''}.mp4` : `grok_video_${videoId}-${videoId}${isHd ? `.hd` : ''}.mp4`;
     // if (isFilenameDefenseEnabled) {
     //   pendingFilenames[finalVideoUrl] = videoFilename;
     //   desiredFilenameQueue.push(videoFilename);
